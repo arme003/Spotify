@@ -1,0 +1,14 @@
+/project_root
+    /static
+        /audio
+            song1.mp3
+            song2.mp3
+            song3.mp3
+        /css
+        /js
+    /templates
+        index.html
+        login.html
+    app.py
+    requirements.txt
+    README.md
