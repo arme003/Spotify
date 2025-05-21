@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Mini Music Player</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+</head>
+<body class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Mini Music Player</h1>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+    </div>
+
+    <input type="text" id="search" placeholder="Search songs or artists..." class="form-control mb-3"/>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h3>All Songs</h3>
+            <ul id="songs-list" class="list-group">
+                {% for song in songs %}
+                <li class="list-group-item d-flex justify-content-between align-items-center" data-id="{{ song.id }}">
+                    <div>
+                        <strong>{{ song.title }}</strong> - {{ song.artist }}
+                    </div>
+                    <button class="btn btn-sm btn-success add-btn">Add</button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="col-md-6">
+            <h3>Playlist</h3>
+            <ul id="playlist" class="list-group">
+                <!-- Playlist songs will be added here -->
+            </ul>
+            <audio id="audio-player" controls class="w-100 mt-3" style="display:none;"></audio>
+        </div>
+    </div>
+
+<script>
+    const songs = {{ songs|tojson }};
+    const playlistElem = document.getElementById('playlist');
+    const songsListElem = document.getElementById('songs-list');
+    const audioPlayer = document.getElementById('audio-player');
+    const searchInput = document.getElementById('search');
+
+    function renderPlaylist(playlist) {
+        playlistElem.innerHTML = '';
+        playlist.forEach(id => {
+            const song = songs.find(s => s.id === id);
+            if (song) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.textContent = `${song.title} - ${song.artist}`;
+                li.dataset.id = song.id;
+
+                const playBtn = document.createElement('button');
+                playBtn.textContent = 'Play';
+                playBtn.className = 'btn btn-sm btn-primary me-2';
+                playBtn.onclick = () => {
+                    audioPlayer.src = song.url;
+                    audioPlayer.style.display = 'block';
+                    audioPlayer.play();
+                };
+
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = 'Remove';
+                removeBtn.className = 'btn btn-sm btn-danger';
+                removeBtn.onclick = () => {
+                    fetch('/api/playlist', {
+                        method: 'DELETE',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({song_id: song.id})
+                    })
+                    .then(res => res.json())
+                    .then(data => renderPlaylist(data.playlist));
+                };
+
+                const btnGroup = document.createElement('div');
+                btnGroup.appendChild(playBtn);
+                btnGroup.appendChild(removeBtn);
+
+                li.appendChild(btnGroup);
+                playlistElem.appendChild(li);
+            }
+        });
+    }
+
+    function fetchPlaylist() {
+        fetch('/api/playlist')
+            .then(res => res.json())
+            .then(data => renderPlaylist(data));
+    }
+
+    function addSongToPlaylist(id) {
+        fetch('/api/playlist', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({song_id: id})
+        })
+        .then(res => res.json())
+        .then(data => renderPlaylist(data.playlist));
+    }
+
+    songsListElem.addEventListener('click', (e) => {
+        if (e.target.classList.contains('add-btn')) {
+            const id = parseInt(e.target.closest('li').dataset.id);
+            addSongToPlaylist(id);
+        }
+    });
+
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        fetch('/api/songs?q=' + encodeURIComponent(q))
+            .then(res => res.json())
+            .then(data => {
+                songsListElem.innerHTML = '';
+                data.forEach(song => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.dataset.id = song.id;
+                    li.innerHTML = `<div><strong>${song.title}</strong> - ${song.artist}</div>
+                                    <button class="btn btn-sm btn-success add-btn">Add</button>`;
+                    songsListElem.appendChild(li);
+                });
+            });
+    });
+
+    // Load playlist on page load
+    fetchPlaylist();
+</script>
+
+</body>
+</html>
